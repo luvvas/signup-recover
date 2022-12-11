@@ -1,6 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
-
 using signup_recover.Data;
 using signup_recover.Models;
 
@@ -26,7 +27,7 @@ namespace signup_recover.Controllers
 
       CreatePasswordHash(request.Password, out byte[] passwordHash, out byte[] passwordSalt);
 
-      var newUser = new User
+      User newUser = new User
       {
         Email = request.Email,
         PasswordHash = passwordHash,
@@ -40,6 +41,24 @@ namespace signup_recover.Controllers
       return Ok("User sucessfully created!");
     }
 
+    [HttpPost("login")]
+    public async Task<ActionResult<User>> Login(UserLoginRequest request)
+    {
+      var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+
+      if (dbUser == null)
+      {
+        return BadRequest("User not found.");
+      }
+
+      if (dbUser.VerifiedAt == null)
+      {
+        return BadRequest("Not verified!");
+      }
+
+      return Ok("User sucessfully Logged");
+    }
+
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
     {
       using (var hmac = new HMACSHA512())
@@ -49,6 +68,16 @@ namespace signup_recover.Controllers
       }
     }
 
+    private bool VerifyPasswordHash(string password, byte[] passwordHash, byte[] passwordSalt)
+    {
+      using (var hmac = new HMACSHA512(passwordSalt))
+      {
+        var computedHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+
+        return computedHash.SequenceEqual(passwordHash);
+      }
+
+    }
     private string CreateRandomToken()
     {
       return Convert.ToHexString(RandomNumberGenerator.GetBytes(64));
