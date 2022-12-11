@@ -18,7 +18,7 @@ namespace signup_recover.Controllers
     }
 
     [HttpPost("register")]
-    public async Task<ActionResult<User>> Register(UserRegisterRequest request)
+    public async Task<ActionResult> Register(UserRegisterRequest request)
     {
       if (_context.Users.Any(u => u.Email == request.Email))
       {
@@ -42,13 +42,19 @@ namespace signup_recover.Controllers
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<User>> Login(UserLoginRequest request)
+    public async Task<ActionResult> Login(UserLoginRequest request)
     {
-      var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+      var dbUser = await _context.Users
+        .FirstOrDefaultAsync(u => u.Email == request.Email);
 
       if (dbUser == null)
       {
         return BadRequest("User not found.");
+      }
+
+      if (!VerifyPasswordHash(request.Password, dbUser.PasswordHash, dbUser.PasswordSalt))
+      {
+        return BadRequest("Password is incorrect.");
       }
 
       if (dbUser.VerifiedAt == null)
@@ -56,7 +62,24 @@ namespace signup_recover.Controllers
         return BadRequest("Not verified!");
       }
 
-      return Ok("User sucessfully Logged");
+      return Ok($"Welcome back, {dbUser.Email}!");
+    }
+
+    [HttpPost("verify")]
+    public async Task<ActionResult> Verify(string token)
+    {
+      var dbUser = await _context.Users
+        .FirstOrDefaultAsync(u => u.VerificationToken == token);
+
+      if (dbUser == null)
+      {
+        return BadRequest("Invalid token");
+      }
+
+      dbUser.VerifiedAt = DateTime.UtcNow;
+      await _context.SaveChangesAsync();
+
+      return Ok("User verified!");
     }
 
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
