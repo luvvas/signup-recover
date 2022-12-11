@@ -82,6 +82,23 @@ namespace signup_recover.Controllers
       return Ok("User verified!");
     }
 
+    [HttpPost("forgot-password")]
+    public async Task<ActionResult> ForgotPassword(string email)
+    {
+      var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+      if (dbUser == null)
+      {
+        return BadRequest("User not found.");
+      }
+
+      dbUser.PasswordResetToken = CreateRandomToken();
+      dbUser.ResetTokenExpires = DateTime.UtcNow.AddDays(1);
+      await _context.SaveChangesAsync();
+
+      return Ok("You may now reset your password");
+    }
+
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
     {
       using (var hmac = new HMACSHA512())
