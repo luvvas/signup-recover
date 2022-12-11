@@ -99,6 +99,28 @@ namespace signup_recover.Controllers
       return Ok("You may now reset your password");
     }
 
+    [HttpPost("reset-password")]
+    public async Task<ActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+      var dbUser = await _context.Users
+        .FirstOrDefaultAsync(u => u.PasswordResetToken == request.Token);
+
+      if (dbUser == null)
+      {
+        return BadRequest("Invalid Token.");
+      }
+
+      CreatePasswordHash(request.Password, out byte[] passwordHash, out byte[] passwordSalt);
+
+      dbUser.PasswordHash = passwordHash;
+      dbUser.PasswordSalt = passwordSalt;
+      dbUser.PasswordResetToken = null;
+      dbUser.ResetTokenExpires = null;
+
+      await _context.SaveChangesAsync();
+
+      return Ok("Password successfully reset.");
+    }
     private void CreatePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
     {
       using (var hmac = new HMACSHA512())
